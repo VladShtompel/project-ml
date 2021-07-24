@@ -1,0 +1,10 @@
+
+data-prepared.zip
+
+data/
+
+__pycache__/
+
+.idea/
+
+.ipynb_checkpoints/
