@@ -4,7 +4,6 @@ import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from torchvision.transforms import Compose
-from data_utils import to_tensor
 
 
 class ImageDataSet(Dataset):
@@ -36,14 +35,10 @@ class ImageDataSet(Dataset):
         else:
             raise IndexError(f"Index {idx:,} is out of range for dataset with length {self.len:,}")
 
-        # move channels to front, make tensor
-        image = to_tensor(image)
-        label = torch.tensor(label)
-
         # augment, normalize
         image = self._transform(image)
         image = self._normalize(image)
-
+        label = torch.tensor(label)
         return image, label
 
     def _load_all(self):

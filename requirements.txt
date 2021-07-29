@@ -5,3 +5,4 @@ numpy~=1.21.1
 tqdm~=4.61.2
 torchvision~=0.10.0+cu111
 torchmetrics~=0.4.1
+RandAugment~=0.1
