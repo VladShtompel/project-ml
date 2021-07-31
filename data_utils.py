@@ -64,7 +64,7 @@ def kfold_splitter(dmap: dict, *, k: int, shuffle: bool = False) -> dict:
 
         dmap = dmap_new
 
-    num_samples_in_fold_per_cls = {cls: math.ceil(len(samples) / k) for cls, samples in dmap.items()}
+    num_samples_in_fold_per_cls = {cls: math.floor(len(samples) / k) for cls, samples in dmap.items()}
 
     for fold in range(k):
         train_folds = {}
