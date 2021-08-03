@@ -39,9 +39,9 @@ if __name__ == '__main__':
 
     device = get_device()
     results_df = get_df(results_path)
-    train_epochs = 1
-    hopt_epochs = 1
-    hopt_trials = 1
+    train_epochs = 10
+    hopt_epochs = 2
+    hopt_trials = 50
 
     for algo in ['Baseline', 'RandAugment']:
 
