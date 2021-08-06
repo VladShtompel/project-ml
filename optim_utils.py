@@ -112,16 +112,7 @@ def eval_model(model: nn.Module, test: DataLoader, scorers: dict, device: Union[
                 scorer(preds, labels)
 
     torch.cuda.empty_cache()
-    ret_dict = {}  # TODO: remove
-    for name, scorer in scorers.items():
-        try:
-            sc = scorer.compute()
-        except:
-            sc = np.nan
-
-        ret_dict[name] = sc
-
-    return ret_dict  # {name: scorer.compute() for name, scorer in scorers.items()}
+    return {name: scorer.compute() for name, scorer in scorers.items()}
 
 
 def get_scorers(num_classes: int) -> dict:
@@ -134,8 +125,6 @@ def get_scorers(num_classes: int) -> dict:
 
 def get_auc_fpr_tpr(roc, pr) -> dict:
     fpr, tpr, _ = roc
-    
-    fpr, tpr = __fix_sizes(fpr, tpr)  # TODO remove
 
     fpr = torch.mean(torch.stack(fpr), dim=0).numpy()
     tpr = torch.mean(torch.stack(tpr), dim=0).numpy()
@@ -190,29 +179,3 @@ def time_model(model: nn.Module, dataset: ImageDataSet, num_infer: int, batch: i
 
     torch.cuda.empty_cache()
     return time.time() - t
-
-# TODO remove
-def __fix_sizes(fpr, tpr):
-    from torch.nn import functional as F
-    f_lens = [len(a) for a in fpr]
-    t_lens = [len(a) for a in tpr]
-
-    padded_fpr, padded_tpr = [], []
-
-    for x in fpr:
-        pad = max(f_lens) - len(x)
-        if pad:
-            new_x = F.pad(x, (pad, 0), 'constant', 0)
-        else:
-            new_x = x
-        padded_fpr.append(new_x)
-
-    for x in tpr:
-        pad = max(t_lens) - len(x)
-        if pad:
-            new_x = F.pad(x, (pad, 0), 'constant', 0)
-        else:
-            new_x = x
-        padded_tpr.append(new_x)
-
-    return padded_fpr, padded_tpr

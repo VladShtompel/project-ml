@@ -56,11 +56,9 @@ if __name__ == '__main__':
             ])
         }
         for data_set in sorted(os.listdir('data')):
-            if 'cifar-100_5' not in data_set and 'cats' not in data_set:
-                continue
-
             path = os.path.join('data', data_set)
             dmap = data_map(path)
+
             for fold, data_maps in enumerate(kfold_splitter(dmap, k=10), 1):
                 # 3 x 50 hyperopt trials
                 hyperopt_func = partial(hyperopt, dmap=data_maps['train'], transforms=data_transforms, epochs=hopt_epochs)
