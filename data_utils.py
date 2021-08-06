@@ -1,7 +1,5 @@
 import math
 import os
-import random
-
 import cv2
 import numpy as np
 import pandas as pd
@@ -9,17 +7,16 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
-
 from dataset import ImageDataSet
 
 
-def seed_all(seed: int):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
+''' This file includes different data-related utility functions '''
 
 
 def data_map(path: str) -> dict:
+    """ Create a mapping of the classes and the data
+    This mapping will then be used for nearly everything data-related.
+    """
     dmap = {}
     for root, dirs, files in os.walk(path):
         if files:
@@ -31,6 +28,7 @@ def data_map(path: str) -> dict:
 
 
 def get_mean_std(dmap: dict) -> (torch.Tensor, torch.Tensor):
+    """ Calculated mean, std of the data in the given map """
     transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((32, 32))])
     n_samples = sum([len(v) for v in dmap.values()])
     images = torch.zeros((n_samples, 3, 32, 32), dtype=torch.float32)
@@ -48,13 +46,16 @@ def get_mean_std(dmap: dict) -> (torch.Tensor, torch.Tensor):
 
 
 def get_new_model(num_classes: int, pretrained: bool = True) -> nn.Module:
+    """ Returns a new resnet18 model with the last layer changed appropriately """
     model = models.resnet18(pretrained=pretrained)
     num_feats = model.fc.in_features
     model.fc = nn.Linear(num_feats, num_classes)
     return model
 
 
-def kfold_splitter(dmap: dict, *, k: int, shuffle: bool = False) -> dict:
+def k_fold_splitter(dmap: dict, *, k: int, shuffle: bool = False) -> dict:
+    """ This is a generator, initialize by passing a datamap and number of folds.
+        Each call will then yield the next splitting of (k-1), (1) folds """
     if shuffle:
         dmap_new = {}
         for cls, samples in dmap.items():
@@ -70,6 +71,7 @@ def kfold_splitter(dmap: dict, *, k: int, shuffle: bool = False) -> dict:
         train_folds = {}
         test_fold = {}
 
+        # generate split
         for cls, samples in dmap.items():
             num_in_fold = num_samples_in_fold_per_cls[cls]
 
@@ -84,6 +86,7 @@ def kfold_splitter(dmap: dict, *, k: int, shuffle: bool = False) -> dict:
 
 
 def get_data_loaders(data_maps: dict, _transforms: dict, batch_sizes: dict) -> (DataLoader, DataLoader):
+    """ A helper function to get the appropriate data loaders """
     mean, std = get_mean_std(data_maps['train'])
 
     train_dset = ImageDataSet(data_maps['train'], mean, std, data_transforms=_transforms['train'])
@@ -96,6 +99,7 @@ def get_data_loaders(data_maps: dict, _transforms: dict, batch_sizes: dict) -> (
 
 
 def get_df(path):
+    """ Get a new or an existing results dataframe """
     if os.path.isfile(path):
         return pd.read_csv(path)
 
@@ -105,6 +109,7 @@ def get_df(path):
 
 
 def get_new_row(data_set: str, algo: str, fold: int, params: dict, evaluation: dict, timing: dict) -> dict:
+    """ Transform the inpout data into a dataframe row """
     row = {
         'Dataset': data_set,
         'Algorithm': algo,

@@ -1,6 +1,6 @@
 import time
+import random
 from typing import Union
-
 import numpy as np
 import torch
 import torchmetrics
@@ -8,12 +8,14 @@ from torch.utils.data import DataLoader
 from torch import nn
 import torch.optim as optim
 from tqdm import tqdm
-from sklearn.metrics import auc, precision_recall_curve, accuracy_score
-from data_utils import kfold_splitter, get_new_model, get_data_loaders
+from sklearn.metrics import auc
+from data_utils import k_fold_splitter, get_new_model, get_data_loaders
 import optuna
 from optuna import TrialPruned
-from collections import Counter
 from dataset import ImageDataSet
+
+
+''' This file includes different optimization-related utility functions '''
 
 
 def hyperopt(trial: optuna.Trial, dmap: dict, transforms: dict, epochs: int):
@@ -39,7 +41,7 @@ def hyperopt(trial: optuna.Trial, dmap: dict, transforms: dict, epochs: int):
     device = get_device()
     scores = []
 
-    for idx, data_maps in enumerate(kfold_splitter(dmap, k=3)):
+    for idx, data_maps in enumerate(k_fold_splitter(dmap, k=3)):
         print("\n" + 40 * "#" + f" INTERNAL FOLD {idx + 1} " + 40 * "#")
         train_loader, test_loader = get_data_loaders(data_maps, transforms, batch_sizes={'train': batch, 'test': 512})
 
@@ -65,7 +67,7 @@ def hyperopt(trial: optuna.Trial, dmap: dict, transforms: dict, epochs: int):
 
 def fit_model(optimization_package: dict, train: DataLoader, epochs: int, device: Union[str, torch.device] = 'cpu') -> \
         nn.Module:
-
+    """ Generic function to fit a model to some given dataset """
     model = optimization_package['model']
     optimizer = optimization_package['optimizer']
     criterion = optimization_package['criterion']
@@ -96,6 +98,7 @@ def fit_model(optimization_package: dict, train: DataLoader, epochs: int, device
 
 
 def eval_model(model: nn.Module, test: DataLoader, scorers: dict, device: Union[str, torch.device]) -> dict:
+    """ Generic function to run a model in eval mode on some data and record scores """
     torch.cuda.empty_cache()
     model.to(device)
     model.eval()  # Set model to evaluate mode
@@ -124,6 +127,7 @@ def get_scorers(num_classes: int) -> dict:
 
 
 def get_auc_fpr_tpr(roc, pr) -> dict:
+    """ this function uses precalculated fpr, tpr, precision, recall to calculated AUC under both curves """
     fpr, tpr, _ = roc
 
     fpr = torch.mean(torch.stack(fpr), dim=0).numpy()
@@ -142,6 +146,7 @@ def get_device() -> torch.device:
 
 
 def get_hyper_params(study_results: dict) -> (optim.Optimizer, dict):
+    """ Helper function to translate optuna study results into an optimizer function and kwargs"""
     study_results = study_results.copy()
     opt = study_results.pop('optimizer')
     _ = study_results.pop('batch_size')
@@ -162,10 +167,12 @@ def get_hyper_params(study_results: dict) -> (optim.Optimizer, dict):
 
 
 def time_model(model: nn.Module, dataset: ImageDataSet, num_infer: int, batch: int, device: Union[str, torch.device]) -> float:
+    """ Measure model inference time on a given amount of samples, with some batch size """
     torch.cuda.empty_cache()
     model.to(device)
     model.eval()
     num_infer //= batch
+
     t = time.time()
     for sample in DataLoader(dataset, batch):
         image, _ = sample
@@ -177,5 +184,12 @@ def time_model(model: nn.Module, dataset: ImageDataSet, num_infer: int, batch: i
         if num_infer == 0:
             break
 
+    record = time.time() - t
     torch.cuda.empty_cache()
-    return time.time() - t
+    return record
+
+
+def seed_all(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)

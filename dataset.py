@@ -4,13 +4,18 @@ import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from torchvision.transforms import Compose
+from optim_utils import get_device
 
 
 class ImageDataSet(Dataset):
+    """
+    This is a generic dataset class for the project.
+    All data is organized such that it would fit this implementation.
+    """
     def __init__(self, data_map: dict, mean: torch.Tensor, std: torch.Tensor, data_transforms: Compose,
                  preload: bool = False):
 
-        self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self._device = get_device()
         self._data = data_map
         self._transform = data_transforms
         self._len = sum([len(v) for v in self._data.values()])
@@ -20,12 +25,14 @@ class ImageDataSet(Dataset):
         self._std = std.unsqueeze(1).unsqueeze(1)
 
         if preload:
+            # preload data to ram, speed up repeated epochs (do not use with less than 32GB RAM)
             self._load_all()
 
     def __len__(self):
         return self.len
 
     def __getitem__(self, idx: int) -> (torch.Tensor, torch.Tensor):
+        # load the sample
         if idx < self.len:
             if self._cache is None:
                 image, label = self._load_item_from_disk(idx)

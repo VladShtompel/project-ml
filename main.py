@@ -1,14 +1,13 @@
 import os
 import time
-
 from torch import nn
 from torchvision import transforms
-from data_utils import data_map, seed_all, kfold_splitter, get_new_model, get_data_loaders, get_df, get_new_row
+from data_utils import data_map, k_fold_splitter, get_new_model, get_data_loaders, get_df, get_new_row
 from functools import partial
 from optim_utils import hyperopt, fit_model, eval_model, get_device, get_scorers, get_hyper_params, get_auc_fpr_tpr, \
-    time_model
+    time_model, seed_all
 import optuna
-from optuna.pruners import MedianPruner, ThresholdPruner, PercentilePruner
+from optuna.pruners import PercentilePruner
 from RandAugment import RandAugment
 
 import warnings
@@ -59,7 +58,7 @@ if __name__ == '__main__':
             path = os.path.join('data', data_set)
             dmap = data_map(path)
 
-            for fold, data_maps in enumerate(kfold_splitter(dmap, k=10), 1):
+            for fold, data_maps in enumerate(k_fold_splitter(dmap, k=10), 1):
                 # 3 x 50 hyperopt trials
                 hyperopt_func = partial(hyperopt, dmap=data_maps['train'], transforms=data_transforms, epochs=hopt_epochs)
                 pruner = PercentilePruner(0.9, n_startup_trials=10)
@@ -70,7 +69,7 @@ if __name__ == '__main__':
                 batch_sizes = {'train': study.best_params['batch_size'], 'test': 256}
                 train_dl, test_dl = get_data_loaders(data_maps, data_transforms, batch_sizes)
 
-                # now train model for 10-15 epoch
+                # now train model for some epochs
                 func, hyper = get_hyper_params(study.best_params)
                 model = get_new_model(num_classes=train_dl.dataset.classes)
                 optimizer = func(model.parameters(), **hyper)
@@ -81,14 +80,16 @@ if __name__ == '__main__':
                 model = fit_model(package, train_dl, epochs=train_epochs, device=device)
                 train_time = time.time() - train_start
 
-                # eval, get all requested metrics
+                # eval, get all required metrics
                 scorers = get_scorers(train_dl.dataset.classes)
                 evaluation = eval_model(model, test_dl, scorers, device=device)
                 evaluation.update(get_auc_fpr_tpr(evaluation['roc'], evaluation['pr']))
 
+                # timing stuff
                 infer_time = time_model(model, train_dl.dataset, 1000, 1, device)
                 timing = {'train': train_time, 'infer': infer_time}
 
+                # save results
                 row = get_new_row(data_set, algo, fold, study.best_params, evaluation, timing)
                 results_df = results_df.append(row, ignore_index=True)
                 results_df.to_csv(results_path, index=False)
